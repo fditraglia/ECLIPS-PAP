@@ -1,0 +1,126 @@
+---
+title: "Power Calculations for 'Pilot' Phase"
+author: "Frank"
+format: html
+embed-resources: true
+---
+
+## First Exercise 
+
+With a sample size of $N$ and a true response rate of $p$, what is the power of a text of $H_0\colon p = p_0$? What is the minimum detectable effect (MDE) for a given sample size and 80% power?
+
+
+```{r}
+get_power_one_sample <- function(N, p_true, p_null, alpha = 0.05, nreps = 1e6) {
+  p_hats <- rbinom(nreps, size = N, prob = p_true) / N
+  test_stats <- (p_hats - p_null) / sqrt(p_null * (1 - p_null) / N)
+  mean(abs(test_stats) > qnorm(1 - alpha / 2))
+}
+
+set.seed(1983)
+
+get_power_one_sample(30000, 0.001, 0.001) # Check size
+get_power_one_sample(30000, 0.001, 0.0015) # Check power
+```
+
+Here is an idea for how to calibrate what could be considered a "good" response rate.
+Our ideal number of responses is 2000 so we can re-balance the sample based on demographics and send out 500 tests.
+If we send out all 150,000 letters this implies a response rate of around 0.013.
+Let's be conservative and call this a "high" response rate.
+A response rate of around 0.003 would give us 500 total responses with 150,000 letters.
+This could be considered a "medium" response rate.
+A response rate of around 0.0006 would give us 100 total responses with 150,000 letters.
+This could be considered a "low" response rate.
+
+```{r}
+p_high <- 2000 / 150000
+p_medium <- 500 / 150000
+p_low <- 100 / 150000
+
+# Can we tell these apart with high power?
+get_power_one_sample(30000, p_true = p_low, p_null = p_high)
+get_power_one_sample(30000, p_true = p_medium, p_null = p_high)
+get_power_one_sample(30000, p_true = p_high, p_null = p_medium)
+get_power_one_sample(30000, p_true = p_high, p_null = p_low)
+```
+
+
+A more nuanced approach is to ask the following: for a given true response rate, what is the *smallest* response rate above the true one that we can detect with 80% power?
+
+
+```{r}
+#| warning: false
+#| message: false
+get_mde_one_sample <- function(N, p_true, ...) {
+  f <- function(p_null, ...) {
+    get_power_one_sample(N, p_true, p_null, ...) - 0.8
+  }
+  if (p_true < 0.5) {
+    my_interval <- c(p_true, 1)
+  } else {
+    my_interval <- c(0, p_true)
+  }
+  uniroot(f, my_interval, ...)$root
+}
+
+library(tidyverse)
+p_true_seq <- c(1:5 / 1000, 1:5 / 100)
+mde_results <- map(
+  p_true_seq, 
+  \(x) get_mde_one_sample(30000, p_true = x)
+)
+
+# Assemble results into a tidy tibble
+mde_results_tibble <- tibble(
+  p_true = p_true_seq,
+  mde = unlist(mde_results),
+  E_responses = 30000 * p_true_seq,
+  E_responses_full = 5 * E_responses
+)
+
+knitr::kable(mde_results_tibble, digits = 3, 
+             col.names = c("True response rate", "MDE", "Expected responses (N = 30,000)", "Expected Responses (N = 150,000)"),
+             caption = "Minimum detectable effect (MDE) for a given sample size and 80% power",
+             format = "html",
+             escape = FALSE,
+             align = c("r", "r", "r"))
+```
+
+
+
+
+## Second Exercise
+
+If response rates vary across invitation letters, can we tell them apart? 
+
+
+```{r}
+power.prop.test(
+  n = 5000,
+  p1 = 0.002,
+  p2 = 0.004, 
+  sig.level = 0.05,
+  power = NULL,
+  alternative = "two.sided"
+)
+
+power.prop.test(
+  n = 10000,
+  p1 = 0.002,
+  p2 = 0.004, 
+  sig.level = 0.05,
+  power = NULL,
+  alternative = "two.sided"
+)
+
+power.prop.test(
+  n = 5000,
+  p1 = 0.001,
+  p2 = 0.005, 
+  sig.level = 0.05,
+  power = NULL,
+  alternative = "two.sided"
+)
+```
+
+
