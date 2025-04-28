@@ -93,12 +93,98 @@ knitr::kable(mde_results_tibble, digits = 3,
 
 If response rates vary across invitation letters, can we tell them apart? 
 
+We have a total of 371,858 households and we know that 142,163 of them are "old" i.e. build before 1965. 
+We know that 82,403 of them are "young" i.e. build after 1965 and for the rest (147,292), we don't know their age.
+
+For the "old" households we have three treatments: control, baseline risk info, and personalized. 
+For the other households we have only two treatments: control versus baseline.
+```{r}
+n_households <- 371858
+n_old <- 142163
+n_young <- 82403
+n_unknown <- 147292
+
+p_old <- n_old / n_households
+p_young <- n_young / n_households
+p_unknown <- n_unknown / n_households
+```
+
+Our design will stratify by age of the household and then randomly assign households to one of the treatments:
+```{r}
+N_prelim <- 30000
+N_total <- 150000
+
+# How many observations per arm among old houses?
+p_old * N_prelim / 3
+p_old * N_total / 3
+
+# How many observations per arm among other houses?
+(1 - p_old) * N_prelim / 2
+```
+
+We *could* choose to over-sample old houses. This is something we should consider if we are particularly interested in the comparison of personalized versus other treatments. But let's first see what we would get from a two-sample comparison with roughly 3800 observations in each group: this is the smallest number of observations per arm / age group. 
+
 
 ```{r}
+# Comparison of two arms for old houses
 power.prop.test(
-  n = 5000,
-  p1 = 0.002,
-  p2 = 0.004, 
+  n = 3800,
+  # Centered around p_medium ~ 0.003
+  p1 = p_medium * (1 - 0.2),
+  p2 = p_medium * (1 + 0.2), 
+  sig.level = 0.05,
+  power = NULL,
+  alternative = "two.sided"
+)
+
+# Comparison of two arms for old houses
+power.prop.test(
+  n = 13000,
+  # Centered around p_medium ~ 0.003
+  p1 = p_medium * (1 - 0.2),
+  p2 = p_medium * (1 + 0.2), 
+  sig.level = 0.05,
+  power = NULL,
+  alternative = "two.sided"
+)
+
+power.prop.test(
+  n = 13000,
+  # Centered around p_medium ~ 0.003
+  p1 = p_medium,
+  p2 = NULL,
+  sig.level = 0.05,
+  power = 0.8,
+  alternative = "two.sided"
+)
+
+power.prop.test(
+  n = 3800,
+  # Centered around p_medium ~ 0.003
+  p1 = p_medium,
+  p2 = NULL,
+  sig.level = 0.05,
+  power = 0.8,
+  alternative = "two.sided"
+)
+
+# Comparison of generalized / control for *all* houses
+
+power.prop.test(
+  n = 3800,
+  # Effect goes from p_medium to p_high 
+  p1 = p_medium,
+  p2 = p_high, 
+  sig.level = 0.05,
+  power = NULL,
+  alternative = "two.sided"
+)
+
+power.prop.test(
+  n = 3800,
+  # Effect goes from p_low to p_medium 
+  p1 = p_low,
+  p2 = p_medium, 
   sig.level = 0.05,
   power = NULL,
   alternative = "two.sided"
